@@ -2,7 +2,7 @@ import os, sys
 import pickle
 import torch
 from transformers import AutoTokenizer
-from utils import load_model
+from utils import load_model, upsert_data_from_file
 from embedder import LateChunkingEmbedder
 import qdrant_client
 def setup():
@@ -11,17 +11,18 @@ def setup():
     os.environ["LD_LIBRARY_PATH"] = "/usr/local/cuda/lib64:" + os.environ.get("LD_LIBRARY_PATH", "")
     os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
-    os.system("docker run -p 6333:6333 -p 6334:6334 -v $(pwd)/qdrant_storage:/qdrant/storage:z qdrant/qdrant")
+    # os.system("docker run -d -p 6333:6333 -p 6334:6334 -v /data/talab/mj/qdrant_storage:/qdrant/storage:z qdrant/qdrant")
 
     client = qdrant_client.QdrantClient(
     host="localhost",
         port=6333, 
         timeout=15.0,
+        
     )
     return client
 
 
-def upsert_data(client, file_path: str):
+def upsert_data(client, file_path: str, collection_name: str):
     with open(file_path, "rb") as f:
         data = pickle.load(f)
     print("length of data: ", len(data))
@@ -34,11 +35,14 @@ def upsert_data(client, file_path: str):
     lc = LateChunkingEmbedder(embedding_model, embedding_tokenizer, chunking_strategy="semantic", embedding_model_name=model_name)
     print("late chunking embedder loaded")
 
-    lc.upload_to_qdrant(data, client, collection_name="spatial2025", batch_size=8)
+    lc.upload_to_qdrant(data, client, collection_name, batch_size=8)
+
+
 
 def main():
+    collection_name = "spatial2025_deduplicated"
     qdrant_client = setup()
-    upsert_data(qdrant_client, '/data/talab/mj/spatial_2025/src/data/crawled_news_2025-04-16_8.pkl')
+    upsert_data_from_file(qdrant_client, './results_2025-04-21.pkl', collection_name)
 
 
 if __name__ == "__main__":

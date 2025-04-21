@@ -1,6 +1,10 @@
 import os
 import torch
 from transformers import AutoModel
+from tqdm import tqdm
+import uuid
+from qdrant_client.models import PointStruct
+import pickle
 
 def remove_unsupported_kwargs(original_encode):
     def wrapper(self, *args, **kwargs):
@@ -36,3 +40,32 @@ def load_model(model_name, model_weights=None, **model_kwargs):
                 )
 
     return model, has_instructions
+
+
+def upsert_data_from_file(qdrant_client, file_path, collection_name: str):
+
+    with open(file_path, "rb") as f:
+        data = pickle.load(f)
+    print("length of data: ", len(data))
+
+    BATCH_SIZE = 50 
+
+    for i in tqdm(range(0, len(data), BATCH_SIZE)): # tqdm 사용하기 위해 추가
+        batch = data[i:i + BATCH_SIZE]
+
+        points = [
+            PointStruct(
+                id=str(uuid.uuid4()),
+                vector=doc["embedding"].tolist(),
+                payload={
+                    "text": doc["text"],
+                    "doc_id": doc["doc_id"],
+                    "chunk_index": doc["chunk_index"]
+                }
+            )
+            for doc in batch
+        ]
+
+        qdrant_client.upsert(collection_name=collection_name, points=points, wait=True)
+
+    print(f"✅ Uploaded {len(points)} points to Qdrant collection '{collection_name}'")
