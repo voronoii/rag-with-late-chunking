@@ -72,6 +72,7 @@ class LateChunkingEmbedder:
                                             vectors_config=VectorParams(size=results[0]["embedding"].shape[0]
                                                                         , distance=Distance.COSINE
                                                                         , on_disk=True))
+            print(f"✅ Created collection : '{collection_name}'")
         
         
 
@@ -122,16 +123,19 @@ class LateChunkingEmbedder:
 
         for i in tqdm(range(0, len(documents), batch_size), desc="Batch embedding"):
             batch_docs = documents[i:i + batch_size]
+            batch_docs_only_contents = [f'{doc["title"]} {doc["content"]}' for doc in batch_docs]
+            
 
             # 1. 청크 어노테이션
+            # doc : dict
             annotations_batch = [
-                self.chunker.chunk(text=doc, tokenizer=self.tokenizer, n_sentences=self.n_sentences)
+                self.chunker.chunk(text=f'{doc["title"]} {doc["content"]}', tokenizer=self.tokenizer, n_sentences=self.n_sentences)
                 for doc in batch_docs
             ]
 
             # 2. 모델 인퍼런스를 위한 tokenizer
             model_inputs = self.tokenizer(
-                batch_docs,
+                batch_docs_only_contents,
                 return_tensors='pt',
                 padding=True,
                 truncation=True,
@@ -148,7 +152,8 @@ class LateChunkingEmbedder:
 
             # 5. 각 청크 텍스트 복원 및 결과 결합
             for doc_idx, (doc, annotations, chunk_embs) in enumerate(zip(batch_docs, annotations_batch, batch_embs)):
-                doc_inputs = self.tokenizer(doc, return_tensors='pt', truncation=True, max_length=self.max_length)
+                full_text = f'{doc["title"]} {doc["content"]}'
+                doc_inputs = self.tokenizer(full_text, return_tensors='pt', truncation=True, max_length=self.max_length)
                 input_ids = doc_inputs["input_ids"][0]  # shape: (seq_len,)
 
                 for chunk_idx, ((start_idx, end_idx), emb) in enumerate(zip(annotations, chunk_embs)):
@@ -159,7 +164,8 @@ class LateChunkingEmbedder:
                         "embedding": emb,
                         "text": chunk_text,
                         "doc_id": i + doc_idx,
-                        "chunk_index": chunk_idx
+                        "chunk_index": chunk_idx,
+                        "published_date": doc["publishDateTime"]
                     })
 
 
@@ -170,8 +176,7 @@ class LateChunkingEmbedder:
             pickle.dump(results, f)
         return results
 
-
-    
+  
    
 
 
