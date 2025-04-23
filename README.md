@@ -1,4 +1,4 @@
-z`z`# RAG with Qdrant using Late Chunking and Reranker
+# RAG with Qdrant using Late Chunking and Reranker
 
 **Qdrant**를 벡터 데이터베이스로 활용하여 RAG 시스템을 구현한 코드. **Jina AI**에서 발표한 전략인 **Late Chunking** 기법을 적용하였고, 한국어 성능 향상을 위해 **BGE 기반 Reranker**를 연동하여 평가를 수행함.
 

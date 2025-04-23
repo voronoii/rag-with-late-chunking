@@ -69,10 +69,10 @@ def rag_with_bge(query, client, collection_name, k=5):
 
 
 def main():
-    collection_name = "spatial2025_ver2"
+    collection_name = "spatial2025_ver3"
     qdrant_client = setup()
     # upsert_data_from_file(qdrant_client, './results_2025-04-21.pkl', collection_name)
-    upsert_data(qdrant_client, './crawled_news_2025-04-22_1.pkl', collection_name)
+    upsert_data(qdrant_client, './crawled_news_2025-04-22_20250413_20250421.pkl', collection_name)
 
 
 if __name__ == "__main__":

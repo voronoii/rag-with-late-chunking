@@ -9,10 +9,11 @@ import requests
 import os
 import sys
 import time
-from qdrant_client.models import PointStruct, VectorParams, Distance
+from qdrant_client.models import PointStruct, VectorParams, Distance, OptimizersConfigDiff
 import pickle
 from datetime import datetime
 import uuid
+import hashlib
 class LateChunkingEmbedder:
 
     def __init__(self, 
@@ -68,10 +69,16 @@ class LateChunkingEmbedder:
         results = self.batch_embed_with_chunks(documents, batch_size=batch_size)
 
         if not qdrant_client.collection_exists(collection_name):
+            print("embedding dim : ", results[0]["embedding"].shape[0])
             qdrant_client.create_collection(collection_name=collection_name, 
                                             vectors_config=VectorParams(size=results[0]["embedding"].shape[0]
                                                                         , distance=Distance.COSINE
-                                                                        , on_disk=True))
+                                                                        , on_disk=True),
+                                            optimizers_config=OptimizersConfigDiff(indexing_threshold=100, 
+                                                                            )
+                                                                                )
+                                                                                                           
+                                                                                                                                                                          
             print(f"✅ Created collection : '{collection_name}'")
         
         
@@ -88,16 +95,31 @@ class LateChunkingEmbedder:
                     payload={
                         "text": doc["text"],
                         "doc_id": doc["doc_id"],
-                        "chunk_index": doc["chunk_index"]
+                        "chunk_index": doc["chunk_index"],
+                        "published_date" : doc["published_date"]
                     }
                 )
                 for doc in batch
             ]
 
-            qdrant_client.upsert(collection_name="spatial2025", points=points, wait=True)
+            qdrant_client.upsert(collection_name=collection_name, points=points, wait=True)
 
         print(f"✅ Uploaded {len(points)} points to Qdrant collection '{collection_name}'")
 
+    
+    def deduplicate_chunks_by_text(self, chunks): # chunks : List[Dict[str, Union[np.ndarray, str, int]]]
+        print("original chunks : ", len(chunks))
+        seen_hashes = set()
+        deduped = []
+        for c in chunks:
+            h = hashlib.md5(c["text"].strip().encode()).hexdigest()
+            if h not in seen_hashes:
+                deduped.append(c)
+                seen_hashes.add(h)
+        print("deduplicated chunks : ", len(deduped))
+        return deduped    
+    
+    
     '''
     모델이 이미 GPU에 올라간 경우는, 배치 처리 방식이 가장 효율적이고 안정적.
     ProcessPoolExecutor는 GPU 사용 불가한 CPU 전용 작업에는 좋지만, 
@@ -168,13 +190,14 @@ class LateChunkingEmbedder:
                         "published_date": doc["publishDateTime"]
                     })
 
-
+        # 중복 제거 
+        deduped_results = self.deduplicate_chunks_by_text(results)
         
         # 에러 대비 결과저장
         today = datetime.now().strftime("%Y-%m-%d")
         with open(f'./results_{today}.pkl', 'wb') as f:
-            pickle.dump(results, f)
-        return results
+            pickle.dump(deduped_results, f)
+        return deduped_results
 
   
    
