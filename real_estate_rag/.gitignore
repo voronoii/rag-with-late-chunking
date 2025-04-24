@@ -1,0 +1,4 @@
+ _pycache__
+ crawled_news_*.pkl
+ results_*.pkl
+ qdrant_storage/

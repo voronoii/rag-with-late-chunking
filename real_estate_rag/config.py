@@ -1,0 +1,1 @@
+embedding_model_name = 'dragonkue/snowflake-arctic-embed-l-v2.0-ko'
