@@ -1,111 +1,110 @@
-# real_estate_rag MCP server
+# RAG with Qdrant using Late Chunking and Reranker
 
-서울시 지역별 부동산 뉴스 제공
+**Qdrant**를 벡터 데이터베이스로 활용하여 RAG 시스템을 구현한 코드. **Jina AI**에서 발표한 전략인 **Late Chunking** 기법을 적용하였고, 한국어 성능 향상을 위해 **BGE 기반 Reranker**를 연동하여 평가를 수행함.
 
-## Components
+---
 
-### Resources
+## 주요 내용
 
-The server implements a simple note storage system with:
-- Custom note:// URI scheme for accessing individual notes
-- Each note resource has a name, description and text/plain mimetype
+- **Qdrant 기반 벡터 검색**
+- **Late Chunking**: 전체 문서를 임베딩한 후 chunking 처리
+- **Reranker 연동**: `dragonkue/bge-reranker-v2-m3-ko` 모델 사용
+- **RAG 평가 지표 구현**: Recall\@K, MRR\@K, nDCG\@K
 
-### Prompts
+---
 
-The server provides a single prompt:
-- summarize-notes: Creates summaries of all stored notes
-  - Optional "style" argument to control detail level (brief/detailed)
-  - Generates prompt combining all current notes with style preference
-
-### Tools
-
-The server implements one tool:
-- add-note: Adds a new note to the server
-  - Takes "name" and "content" as required string arguments
-  - Updates server state and notifies clients of resource changes
-
-## Configuration
-
-[TODO: Add configuration details specific to your implementation]
-
-## Quickstart
-
-### Install
-
-#### Claude Desktop
-
-On MacOS: `~/Library/Application\ Support/Claude/claude_desktop_config.json`
-On Windows: `%APPDATA%/Claude/claude_desktop_config.json`
-
-<details>
-  <summary>Development/Unpublished Servers Configuration</summary>
-  ```
-  "mcpServers": {
-    "real_estate_rag": {
-      "command": "uv",
-      "args": [
-        "--directory",
-        "/data/talab/mj/spatial_2025/real_estate_rag",
-        "run",
-        "real_estate_rag"
-      ]
-    }
-  }
-  ```
-</details>
-
-<details>
-  <summary>Published Servers Configuration</summary>
-  ```
-  "mcpServers": {
-    "real_estate_rag": {
-      "command": "uvx",
-      "args": [
-        "real_estate_rag"
-      ]
-    }
-  }
-  ```
-</details>
-
-## Development
-
-### Building and Publishing
-
-To prepare the package for distribution:
-
-1. Sync dependencies and update lockfile:
-```bash
-uv sync
-```
-
-2. Build package distributions:
-```bash
-uv build
-```
-
-This will create source and wheel distributions in the `dist/` directory.
-
-3. Publish to PyPI:
-```bash
-uv publish
-```
-
-Note: You'll need to set PyPI credentials via environment variables or command flags:
-- Token: `--token` or `UV_PUBLISH_TOKEN`
-- Or username/password: `--username`/`UV_PUBLISH_USERNAME` and `--password`/`UV_PUBLISH_PASSWORD`
-
-### Debugging
-
-Since MCP servers run over stdio, debugging can be challenging. For the best debugging
-experience, we strongly recommend using the [MCP Inspector](https://github.com/modelcontextprotocol/inspector).
+## 구조 요약
 
 
-You can launch the MCP Inspector via [`npm`](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm) with this command:
-
-```bash
-npx @modelcontextprotocol/inspector uv --directory /data/talab/mj/spatial_2025/real_estate_rag run real-estate-rag
-```
 
 
-Upon launching, the Inspector will display a URL that you can access in your browser to begin debugging.
+### 1. 문서 처리 및 적재
+
+- 문서 데이터를 불러와 **청크 분할**
+- HuggingFace 임베딩 모델로 벡터화
+- Qdrant에 각 청크를 `PointStruct`로 저장
+
+
+### 2. 질문 생성 (Ground Truth 생성)
+
+- 전체 문서를 기준으로 LLM을 이용해 **질문-정답 쌍** 생성
+- 평가셋은 `question`, `ground_truth_doc_id`로 구성된 CSV 형태
+
+### 3. 평가 (RAG Retrieval)
+
+- 사용자 질문을 벡터화하여 Qdrant에서 Top-K 청크 검색
+- 청크 ID에서 `doc_id` 추출하여 평가 지표 계산
+
+### 4. Reranker 적용 (선택)
+
+- 검색된 청크에 대해 `query-text` 쌍 생성
+- `FlagEmbedding` 기반 Reranker로 점수 계산 및 재정렬
+- 재정렬된 결과 기준으로 Recall / MRR / nDCG 재평가
+
+---
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## 평가 결과 (@K=5 기준)
+
+
+
+
+
+
+
+
+
+
+
+
+
+| RAG 방식                   | Recall\@5 | MRR\@5 | nDCG\@5 |
+| ------------------------ | --------- | ------ | ------- |
+| Base RAG                 | 0.2736    | 0.1901 | 0.2110  |
+| Late Chunking 적용         | 0.5472    | 0.3803 | 0.4219  |
+| Late Chunking + Reranker | 0.5472    | 0.4814 | 0.4983  |
+
+
+
+---
+
+## 사용 모델 및 도구
+
+
+
+
+- **LLM**: OpenAI `gpt-4o-mini` (질문 생성, 적절성 평가)
+- **Embedding**: `dragonkue/snowflake-arctic-embed-l-v2.0-ko`
+- **Reranker**: `dragonkue/bge-reranker-v2-m3-ko` (`FlagEmbedding` 활용)
+- **Vector DB**: `Qdrant`
+- **프레임워크**: `LlamaIndex`, `Transformers`,
+
+
+
+---
+
+
+
+
+## 참고
+
+
+
+- [Jina AI: The Power of Late Chunking](https://github.com/jina-ai/late-chunking)
+- [Qdrant Docs](https://qdrant.tech/documentation/)
+- [FlagEmbedding: BGE reranker](https://github.com/FlagOpen/FlagEmbedding)
+- [LlamaIndex RAG Eval Tools](https://docs.llamaindex.ai/en/stable/examples/eval/)
