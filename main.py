@@ -2,12 +2,15 @@ import os, sys
 import pickle
 import torch
 from transformers import AutoTokenizer
-from utils import load_model, upsert_data_from_file
+from utils import load_model, upsert_data_from_file, add_bm25_scores
 from embedder import LateChunkingEmbedder
 import qdrant_client
 from FlagEmbedding import FlagReranker
 import numpy as np
 import config as cfg
+from llama_index.core import Settings
+from llama_index.embeddings.huggingface import HuggingFaceEmbedding
+
 def setup():
     # sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     os.environ["PATH"] = "/usr/local/cuda/bin:" + os.environ["PATH"]
@@ -21,6 +24,10 @@ def setup():
         port=6333, 
         timeout=15.0,
         
+    )
+
+    Settings.embed_model =  HuggingFaceEmbedding(
+        model_name='dragonkue/snowflake-arctic-embed-l-v2.0-ko',
     )
     return client
 
@@ -72,8 +79,17 @@ def main():
     collection_name = "spatial2025_ver3"
     qdrant_client = setup()
     # upsert_data_from_file(qdrant_client, './results_2025-04-21.pkl', collection_name)
-    upsert_data(qdrant_client, './crawled_news_2025-04-22_20250413_20250421 .pkl', collection_name)
 
+    # 1. upsert data
+    # upsert_data(qdrant_client, './crawled_news_2025-04-23_20250401_20250412.pkl', collection_name)
+
+    # 2. add bm25 scores
+    # add_bm25_scores(qdrant_client, collection_name)
+
+    from ranking import hybrid_reranking
+    query = "마포구 부동산 전망"
+    collection_name = "spatial2025_ver3"
+    results = hybrid_reranking(query, qdrant_client, collection_name)
 
 if __name__ == "__main__":
     main()

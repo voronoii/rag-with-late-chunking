@@ -79,7 +79,7 @@ class LateChunkingEmbedder:
                                                                                 )
                                                                                                            
                                                                                                                                                                           
-            print(f"✅ Created collection : '{collection_name}'")
+            print(f"✅ Created collection : '{collection_name}'/n")
         
         
 
@@ -108,7 +108,8 @@ class LateChunkingEmbedder:
 
     
     def deduplicate_chunks_by_text(self, chunks): # chunks : List[Dict[str, Union[np.ndarray, str, int]]]
-        print("original chunks : ", len(chunks))
+        print("🔍 Removing duplicate chunks...")
+        print("Original chunks : ", len(chunks))
         seen_hashes = set()
         deduped = []
         for c in chunks:
@@ -116,7 +117,7 @@ class LateChunkingEmbedder:
             if h not in seen_hashes:
                 deduped.append(c)
                 seen_hashes.add(h)
-        print("deduplicated chunks : ", len(deduped))
+        print("Deduplicated chunks : ", len(deduped), "/n")
         return deduped    
     
     

@@ -1,0 +1,26 @@
+[project]
+name = "real-estate-rag"
+version = "3.12.2"
+description = "서울시 지역별 부동산 뉴스 제공"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+ "httpx>=0.28.1",
+ "mcp>=1.6.0",
+ "python-dotenv>=1.1.0",
+]
+[[project.authors]]
+name = "voronoii"
+email = "externelrequests@gmail.com"
+
+[build-system]
+requires = [ "hatchling",]
+build-backend = "hatchling.build"
+
+[tool.uv.workspace]
+members = [
+    "mcp-server-tutorial",
+]
+
+[project.scripts]
+real-estate-rag = "real_estate_rag:main"
